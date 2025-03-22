@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: my_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1112
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - my_network
+
+  app:
+    build: .
+    container_name: my_go_app
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      APP_PORT: 8080
+      DB_HOST: postgres  # Здесь важно! Вместо localhost указываем имя сервиса PostgreSQL
+      DB_USER: postgres
+      DB_PASSWORD: 1112
+      DB_NAME: postgres
+      DB_PORT: 5432
+    ports:
+      - "8080:8080"
+    networks:
+      - my_network
+
+networks:
+  my_network:
+    driver: bridge
