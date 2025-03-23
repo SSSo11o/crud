@@ -34,7 +34,7 @@ func CreateUrl(c *gin.Context) {
 	c.JSON(http.StatusOK, url)
 }
 
-func GetUrl(c *gin.Context) {
+func GetUrlByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -57,6 +57,63 @@ func GetUrl(c *gin.Context) {
 	}
 	log.Printf("Найдено url с id: %v", id)
 	c.JSON(http.StatusOK, url)
+}
+
+func GetAllUrls(c *gin.Context) {
+	pageStr := c.DefaultQuery("page", "1")
+	pageSizeStr := c.DefaultQuery("pageSize", "10")
+	filter := c.DefaultQuery("filter", "")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		log.Printf("не верные параметр страниц: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "не верные параметр страниц"})
+		return
+	}
+
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil {
+		log.Printf("не верные параметр размер страниц: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "не верные размер страниц"})
+		return
+	}
+
+	offset := (page - 1) * pageSize
+
+	var result []struct {
+		models.Url
+		TotalCount int64 `json:"total_count"`
+	}
+
+	query := database.DB.Table("Url").Select("url * where is_active =?", true, "count(*) over() as total_count")
+
+	if filter != "" {
+		query = query.Where("name ILIKE ?", "%"+filter+"%")
+	}
+	query = query.Order("id desc")
+
+	if err := query.Offset(offset).Limit(pageSize).Find(&result).Error; err != nil {
+		log.Printf("Ошибка при извличение данных: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "не удалось извлечь данных"})
+		return
+	}
+
+	totalCount := int64(0)
+	if len(result) > 0 {
+		totalCount = result[0].TotalCount
+	}
+	totalPages := int64(0)
+	if totalCount > 0 {
+		totalPages = (totalCount + int64(pageSize) - 1) / int64(pageSize)
+	}
+
+	log.Printf("Найдено %d записей", totalCount)
+	c.JSON(http.StatusOK, gin.H{
+		"total":     totalCount,
+		"totalPage": totalPages,
+		"page":      page,
+		"url":       result,
+	})
 }
 
 func UpdateUrl(c *gin.Context) {
