@@ -7,4 +7,3 @@ create table Url (
                 updated_at timestamp default now ()
 );
 
-select * from Url;

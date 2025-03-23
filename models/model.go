@@ -11,4 +11,4 @@ type Url struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func (Url) TableName() string { return "Url" }
+func (Url) TableName() string { return "url" }

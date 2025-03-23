@@ -66,53 +66,45 @@ func GetAllUrls(c *gin.Context) {
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		log.Printf("не верные параметр страниц: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "не верные параметр страниц"})
+		log.Printf("Неверный параметр страниц: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный параметр страниц"})
 		return
 	}
 
 	pageSize, err := strconv.Atoi(pageSizeStr)
 	if err != nil {
-		log.Printf("не верные параметр размер страниц: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "не верные размер страниц"})
+		log.Printf("Неверный размер страниц: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный размер страниц"})
 		return
 	}
 
 	offset := (page - 1) * pageSize
 
-	var result []struct {
-		models.Url
-		TotalCount int64 `json:"total_count"`
-	}
+	var result []models.Url
+	var totalCount int64
 
-	query := database.DB.Table("Url").Select("url * where is_active =?", true, "count(*) over() as total_count")
+	query := database.DB.Model(&models.Url{}).Where("is_active = ?", true)
 
 	if filter != "" {
 		query = query.Where("name ILIKE ?", "%"+filter+"%")
 	}
-	query = query.Order("id desc")
 
-	if err := query.Offset(offset).Limit(pageSize).Find(&result).Error; err != nil {
-		log.Printf("Ошибка при извличение данных: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "не удалось извлечь данных"})
+	query.Count(&totalCount)
+
+	if err := query.Order("id desc").Offset(offset).Limit(pageSize).Find(&result).Error; err != nil {
+		log.Printf("Ошибка при извлечении данных: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось извлечь данные"})
 		return
 	}
 
-	totalCount := int64(0)
-	if len(result) > 0 {
-		totalCount = result[0].TotalCount
-	}
-	totalPages := int64(0)
-	if totalCount > 0 {
-		totalPages = (totalCount + int64(pageSize) - 1) / int64(pageSize)
-	}
+	totalPages := (totalCount + int64(pageSize) - 1) / int64(pageSize)
 
 	log.Printf("Найдено %d записей", totalCount)
 	c.JSON(http.StatusOK, gin.H{
-		"total":     totalCount,
-		"totalPage": totalPages,
-		"page":      page,
-		"url":       result,
+		"total":      totalCount,
+		"totalPages": totalPages,
+		"page":       page,
+		"urls":       result,
 	})
 }
 
